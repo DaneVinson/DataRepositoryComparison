@@ -1,0 +1,53 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp", "ConsoleApp\ConsoleApp.csproj", "{2B9F7513-D492-4BA9-8C4B-5A49F6AAB017}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Model", "Model\Model.csproj", "{5502E867-218C-4444-8FEF-29DE5BDEF001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sql.Dapper", "Sql.Dapper\Sql.Dapper.csproj", "{4FD9064D-56D0-435A-9C23-BEEB36598792}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentDB", "DocumentDB\DocumentDB.csproj", "{A48A7246-656A-4FD3-98AB-7699AC63E4BF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AzureStorageTable", "AzureStorageTable\AzureStorageTable.csproj", "{E9886D1D-EDB5-490E-8FF6-7DE4622B74C6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Repositories", "Repositories", "{0340A6B9-A4A8-410F-9F17-250CC96FB34B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2B9F7513-D492-4BA9-8C4B-5A49F6AAB017}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B9F7513-D492-4BA9-8C4B-5A49F6AAB017}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B9F7513-D492-4BA9-8C4B-5A49F6AAB017}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B9F7513-D492-4BA9-8C4B-5A49F6AAB017}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5502E867-218C-4444-8FEF-29DE5BDEF001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5502E867-218C-4444-8FEF-29DE5BDEF001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5502E867-218C-4444-8FEF-29DE5BDEF001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5502E867-218C-4444-8FEF-29DE5BDEF001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4FD9064D-56D0-435A-9C23-BEEB36598792}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4FD9064D-56D0-435A-9C23-BEEB36598792}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4FD9064D-56D0-435A-9C23-BEEB36598792}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4FD9064D-56D0-435A-9C23-BEEB36598792}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A48A7246-656A-4FD3-98AB-7699AC63E4BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A48A7246-656A-4FD3-98AB-7699AC63E4BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A48A7246-656A-4FD3-98AB-7699AC63E4BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A48A7246-656A-4FD3-98AB-7699AC63E4BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E9886D1D-EDB5-490E-8FF6-7DE4622B74C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E9886D1D-EDB5-490E-8FF6-7DE4622B74C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E9886D1D-EDB5-490E-8FF6-7DE4622B74C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E9886D1D-EDB5-490E-8FF6-7DE4622B74C6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4FD9064D-56D0-435A-9C23-BEEB36598792} = {0340A6B9-A4A8-410F-9F17-250CC96FB34B}
+		{A48A7246-656A-4FD3-98AB-7699AC63E4BF} = {0340A6B9-A4A8-410F-9F17-250CC96FB34B}
+		{E9886D1D-EDB5-490E-8FF6-7DE4622B74C6} = {0340A6B9-A4A8-410F-9F17-250CC96FB34B}
+	EndGlobalSection
+EndGlobal
