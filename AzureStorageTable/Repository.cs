@@ -26,7 +26,7 @@ namespace AzureStorageTable
         {
             TableOperation insertOperation = TableOperation.Insert(thing as ThingEntity);
             var tableResult = await Table.ExecuteAsync(insertOperation);
-            return IsHttpSuccess(tableResult.HttpStatusCode);
+            return tableResult.HttpStatusCode.IsHttpSuccess();
         }
 
         public async Task<bool> DeleteAsync(string id)
@@ -34,7 +34,12 @@ namespace AzureStorageTable
             var entity = new DynamicTableEntity(ThingsPartitionKey, id.ToString());
             entity.ETag = "*";
             var tableResult = await Table.ExecuteAsync(TableOperation.Delete(entity));
-            return IsHttpSuccess(tableResult.HttpStatusCode);
+            return tableResult.HttpStatusCode.IsHttpSuccess();
+        }
+
+        public void Dispose()
+        {
+            // No resources to dispose.
         }
 
         public async Task<ICollection<IThing>> GetAsync()
@@ -62,12 +67,6 @@ namespace AzureStorageTable
         }
 
         #endregion
-
-        private bool IsHttpSuccess(int httpStatusCode)
-        {
-            return httpStatusCode > 199 && httpStatusCode < 300;
-        }
-
 
         private CloudTable Table { get; }
 

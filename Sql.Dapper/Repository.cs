@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Sql.Dapper
 {
-    public class Repository : IRepository, IDisposable
+    public class Repository : IRepository
     {
         public Repository()
         {
@@ -33,6 +33,11 @@ namespace Sql.Dapper
             return deleteCount == 1;
         }
 
+        public void Dispose()
+        {
+            if (Connection != null) { Connection.Dispose(); }
+        }
+
         public async Task<ICollection<IThing>> GetAsync()
         {
             string sql = "select * from Things";
@@ -47,11 +52,6 @@ namespace Sql.Dapper
         }
 
         #endregion
-
-        public void Dispose()
-        {
-            if (Connection != null) { Connection.Dispose(); }
-        }
 
         private SqlConnection Connection { get; }
     }

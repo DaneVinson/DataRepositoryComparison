@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Model
 {
-    public interface IRepository
+    public interface IRepository : IDisposable
     {
         Task<bool> CreateAsync(IThing thing);
         Task<bool> DeleteAsync(string id);

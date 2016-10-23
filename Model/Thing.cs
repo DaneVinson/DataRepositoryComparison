@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,6 +11,7 @@ namespace Model
     {
         public string Description { get; set; }
         public bool Flag { get; set; }
+        [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
         public DateTime Stamp { get; set; }
         public int ThingId { get; set; }

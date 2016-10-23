@@ -20,7 +20,8 @@ namespace ConsoleApp
             {
                 IRepository repository = null;
                 //repository = new AzureStorageTable.Repository();
-                repository = new Sql.Dapper.Repository();
+                //repository = new Sql.Dapper.Repository();
+                repository = new DocumentDB.Repository();
 
                 int count = 1;
                 var things = NewThings(count);

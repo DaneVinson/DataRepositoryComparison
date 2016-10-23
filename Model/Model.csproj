@@ -44,6 +44,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IntegerExtender.cs" />
     <Compile Include="IRepository.cs" />
     <Compile Include="IThing.cs" />
     <Compile Include="Thing.cs" />
