@@ -19,7 +19,8 @@ namespace ConsoleApp
             try
             {
                 IRepository repository = null;
-                repository = new AzureStorageTable.Repository();
+                //repository = new AzureStorageTable.Repository();
+                repository = new Sql.Dapper.Repository();
 
                 int count = 1;
                 var things = NewThings(count);
@@ -28,13 +29,13 @@ namespace ConsoleApp
                 // Create new things
                 int successCount = CreateThings(things, repository).Result;
 
+                // Get all things
+                things = GetAllThings(repository).Result.ToList();
+
                 // Get each thing
                 successCount = GetThings(things, repository).Result;
 
-                // Get all things
-                successCount = GetAllThings(repository).Result;
-
-                // Delete all things
+                // Delete each thing
                 successCount = DeleteThings(things, repository).Result;
             }
             catch (Exception ex)
@@ -80,10 +81,18 @@ namespace ConsoleApp
             var stopWatch = new Stopwatch();
             List<Task<bool>> tasks = new List<Task<bool>>();
 
-            // TODO: For SQL repository use ThingId.ToString() instead of Id.
-
             stopWatch.Start();
-            things.ToList().ForEach(t => tasks.Add(repository.DeleteAsync(t.Id)));
+
+            // For SQL repository use ThingId.ToString() instead of Id.
+            if (repository.GetType() == typeof(Sql.Dapper.Repository))
+            {
+                things.ToList().ForEach(t => tasks.Add(repository.DeleteAsync(t.ThingId.ToString())));
+            }
+            else
+            {
+                things.ToList().ForEach(t => tasks.Add(repository.DeleteAsync(t.Id)));
+            }
+
             var results = await Task.WhenAll(tasks);
             stopWatch.Stop();
             var successCount = results.Where(r => r).Count();
@@ -91,7 +100,7 @@ namespace ConsoleApp
             return successCount;
         }
 
-        private static async Task<int> GetAllThings(IRepository repository)
+        private static async Task<ICollection<IThing>> GetAllThings(IRepository repository)
         {
             var stopWatch = new Stopwatch();
             stopWatch.Start();
@@ -100,7 +109,7 @@ namespace ConsoleApp
 
             var successCount = returnedThings.Count;
             Log.Info($"{repository.GetType()} - Get All: {successCount}, ms: {stopWatch.ElapsedMilliseconds}");
-            return successCount;
+            return returnedThings;
         }
 
         private static async Task<int> GetThings(IEnumerable<IThing> things, IRepository repository)
@@ -108,10 +117,18 @@ namespace ConsoleApp
             var stopWatch = new Stopwatch();
             var tasks = new List<Task<IThing>>();
 
-            // TODO: For SQL repository use ThingId.ToString() instead of Id.
-
             stopWatch.Start();
-            things.ToList().ForEach(t => tasks.Add(repository.GetAsync(t.Id)));
+
+            // For SQL repository use ThingId.ToString() instead of Id.
+            if (repository.GetType() == typeof(Sql.Dapper.Repository))
+            {
+                things.ToList().ForEach(t => tasks.Add(repository.GetAsync(t.ThingId.ToString())));
+            }
+            else
+            {
+                things.ToList().ForEach(t => tasks.Add(repository.GetAsync(t.Id)));
+            }
+
             var results = await Task.WhenAll(tasks);
             stopWatch.Stop();
             var successCount = results.Where(r => r != null).Count();
