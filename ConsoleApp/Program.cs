@@ -1,14 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using AzureStorageTable;
+using GenFu;
 using log4net;
 using log4net.Config;
 using Model;
-using AzureStorageTable;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ConsoleApp
 {
@@ -18,26 +20,31 @@ namespace ConsoleApp
         {
             try
             {
-                IRepository repository = null;
-                //repository = new AzureStorageTable.Repository();
-                //repository = new Sql.Dapper.Repository();
-                repository = new DocumentDB.Repository();
+                int count = 500;
+                int iterations = 5;
+                Log.Info($"[{count} Things, {iterations} iterations]");
 
-                int count = 1;
-                var things = NewThings(count);
-                Log.Info($"{count} Things");
+                for (int i = 0; i < iterations; i++)
+                {
+                    IEnumerable<IThing> things = NewThings(count);
+                    IRepository repository = null;
 
-                // Create new things
-                int successCount = CreateThings(things, repository).Result;
+                    //Log.Info("---Local SQL Server---");
+                    //repository = new Sql.Dapper.Repository("LocalSqlConnection");
+                    //ExeciseRepository(repository, things);
 
-                // Get all things
-                things = GetAllThings(repository).Result.ToList();
+                    Log.Info("---Azure SQL, S0---");
+                    repository = new Sql.Dapper.Repository("AzureSqlConnection");
+                    ExeciseRepository(repository, things);
 
-                // Get each thing
-                successCount = GetThings(things, repository).Result;
+                    //Log.Info("---Azure Storage Table---");
+                    //repository = new AzureStorageTable.Repository();
+                    //ExeciseRepository(repository, things);
 
-                // Delete each thing
-                successCount = DeleteThings(things, repository).Result;
+                    //Log.Info("---Azure DocumentDB---");
+                    //repository = new DocumentDB.Repository();
+                    //ExeciseRepository(repository, things);
+                }
             }
             catch (Exception ex)
             {
@@ -101,6 +108,21 @@ namespace ConsoleApp
             return successCount;
         }
 
+        private static void ExeciseRepository(IRepository repository, IEnumerable<IThing> things)
+        {
+            // Create new things
+            int successCount = CreateThings(things, repository).Result;
+
+            // Get all things
+            IEnumerable<IThing> freshThings = GetAllThings(repository).Result.ToList();
+
+            // Get each thing
+            successCount = GetThings(freshThings, repository).Result;
+
+            // Delete each thing
+            successCount = DeleteThings(freshThings, repository).Result;
+        }
+
         private static async Task<ICollection<IThing>> GetAllThings(IRepository repository)
         {
             var stopWatch = new Stopwatch();
@@ -138,20 +160,23 @@ namespace ConsoleApp
         }
 
 
-        private static List<IThing> NewThings(int count)
+        private static List<Thing> NewThings(int count)
         {
-            var things = new List<IThing>();
+            Random random = new Random();
+            var genFuThings = A.ListOf<Thing>(count);
+
+            var things = new List<Thing>();
             var counter = 0;
             while (counter < count)
             {
                 things.Add(new Thing()
                 {
-                    Description = "randomize with GenFu",
-                    Flag = true || false,
+                    Description = genFuThings[counter].Description,
+                    Flag = random.Next() % 2 == 0,
                     Id = Guid.NewGuid().ToString(),
-                    Stamp = DateTime.UtcNow,
+                    Stamp = genFuThings[counter].Stamp,
                     ThingId = counter++,
-                    Value = 23.5
+                    Value = random.NextDouble() * random.Next(1, 3) * 10
                 });
             }
             return things;
