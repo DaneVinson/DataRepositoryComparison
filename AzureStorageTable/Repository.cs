@@ -22,19 +22,29 @@ namespace AzureStorageTable
 
         #region IRepository
 
-        public async Task<bool> CreateAsync(IThing thing)
+        public async Task<bool> CreateAsync(IEnumerable<IThing> things)
         {
-            TableOperation insertOperation = TableOperation.Insert(thing as ThingEntity);
-            var tableResult = await Table.ExecuteAsync(insertOperation);
-            return tableResult.HttpStatusCode.IsHttpSuccess();
+            var tasks = new List<Task<TableResult>>();
+            foreach(var thing in things)
+            {
+                TableOperation insertOperation = TableOperation.Insert(thing as ThingEntity);
+                tasks.Add(Table.ExecuteAsync(insertOperation));
+            }
+            var tableResults = await Task.WhenAll(tasks);
+            return !tableResults.Any(r => r == null || !r.HttpStatusCode.IsHttpSuccess());
         }
 
-        public async Task<bool> DeleteAsync(string id)
+        public async Task<bool> DeleteAsync(IEnumerable<string> ids)
         {
-            var entity = new DynamicTableEntity(ThingsPartitionKey, id.ToString());
-            entity.ETag = "*";
-            var tableResult = await Table.ExecuteAsync(TableOperation.Delete(entity));
-            return tableResult.HttpStatusCode.IsHttpSuccess();
+            var tasks = new List<Task<TableResult>>();
+            foreach (var id in ids)
+            {
+                var entity = new DynamicTableEntity(ThingsPartitionKey, id);
+                entity.ETag = "*";
+                tasks.Add(Table.ExecuteAsync(TableOperation.Delete(entity)));
+            }
+            var tableResults = await Task.WhenAll(tasks);
+            return !tableResults.Any(r => r == null || !r.HttpStatusCode.IsHttpSuccess());
         }
 
         public void Dispose()
@@ -42,7 +52,7 @@ namespace AzureStorageTable
             // No resources to dispose.
         }
 
-        public async Task<ICollection<IThing>> GetAsync()
+        public async Task<IThing[]> GetAsync()
         {
             var tableQuery = new TableQuery<ThingEntity>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, ThingsPartitionKey));
 
@@ -56,14 +66,19 @@ namespace AzureStorageTable
                 continuationToken = tableQueryResult.ContinuationToken;
                 list.AddRange(tableQueryResult.Results);
             } while (continuationToken != null);
-            return list;
+            return list.ToArray();
         }
 
-        public async Task<IThing> GetAsync(string id)
+        public async Task<IThing[]> GetAsync(IEnumerable<string> ids)
         {
-            TableOperation retrieveOperation = TableOperation.Retrieve<ThingEntity>(ThingsPartitionKey, id);
-            TableResult retrievedResult = await Table.ExecuteAsync(retrieveOperation);
-            return retrievedResult.Result as IThing;
+            var tasks = new List<Task<TableResult>>();
+            foreach (var id in ids)
+            {
+                TableOperation retrieveOperation = TableOperation.Retrieve<ThingEntity>(ThingsPartitionKey, id);
+                tasks.Add(Table.ExecuteAsync(retrieveOperation));
+            }
+            var tableResults = await Task.WhenAll(tasks);
+            return tableResults.Select(r => r.Result as IThing).ToArray();
         }
 
         #endregion

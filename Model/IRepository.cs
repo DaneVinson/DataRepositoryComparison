@@ -8,9 +8,9 @@ namespace Model
 {
     public interface IRepository : IDisposable
     {
-        Task<bool> CreateAsync(IThing thing);
-        Task<bool> DeleteAsync(string id);
-        Task<ICollection<IThing>> GetAsync();
-        Task<IThing> GetAsync(string id);
+        Task<bool> CreateAsync(IEnumerable<IThing> things);
+        Task<bool> DeleteAsync(IEnumerable<string> ids);
+        Task<IThing[]> GetAsync();
+        Task<IThing[]> GetAsync(IEnumerable<string> ids);
     }
 }
