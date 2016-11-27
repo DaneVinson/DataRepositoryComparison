@@ -81,8 +81,7 @@ namespace Sql.Dapper
             return deleteCount == ids.Count();
         }
 
-        public void Dispose()
-        { }
+        public void Dispose() { }
 
         public async Task<IThing[]> GetAsync()
         {

@@ -19,32 +19,52 @@ namespace DocumentDB
                             new Uri(CloudConfigurationManager.GetSetting("DocumentDBUri")), 
                             CloudConfigurationManager.GetSetting("DocumentDBKey"));
             DBName = CloudConfigurationManager.GetSetting("DocumentDBName");
+            int maxConnections = 0;
+            if (!Int32.TryParse(CloudConfigurationManager.GetSetting("MaxDocumentDBConnections"), out maxConnections))
+            {
+                maxConnections = 0;
+            }
+            MaxConnections = Math.Max(0, maxConnections);
         }
 
         #region IRepository
 
         public async Task<bool> CreateAsync(IEnumerable<IThing> things)
         {
-            var tasks = new List<Task<ResourceResponse<Document>>>();
-            foreach(var thing in things)
+            var createCount = 0;
+            var skip = 0;
+            while (skip <= things.Count())
             {
-                var uri = UriFactory.CreateDocumentCollectionUri(DBName, CollectionName);
-                tasks.Add(Client.UpsertDocumentAsync(uri, thing));
+                var tasks = new List<Task<ResourceResponse<Document>>>();
+                foreach (var thing in things.Skip(skip).Take(MaxConnections))
+                {
+                    var uri = UriFactory.CreateDocumentCollectionUri(DBName, CollectionName);
+                    tasks.Add(Client.UpsertDocumentAsync(uri, thing));
+                }
+                var responses = await Task.WhenAll(tasks);
+                createCount += responses.Where(r => r != null && ((int)r.StatusCode).IsHttpSuccess()).Count();
+                skip += MaxConnections;
             }
-            var responses = await Task.WhenAll(tasks);
-            return !responses.Any(r => r == null || !((int)r.StatusCode).IsHttpSuccess());
+            return createCount == things.Count();
         }
 
         public async Task<bool> DeleteAsync(IEnumerable<string> ids)
         {
-            var tasks = new List<Task<ResourceResponse<Document>>>();
-            foreach (var id in ids)
+            var deleteCount = 0;
+            var skip = 0;
+            while (skip <= ids.Count())
             {
-                var uri = UriFactory.CreateDocumentUri(DBName, CollectionName, id);
-                tasks.Add(Client.DeleteDocumentAsync(uri));
+                var tasks = new List<Task<ResourceResponse<Document>>>();
+                foreach (var id in ids.Skip(skip).Take(MaxConnections))
+                {
+                    var uri = UriFactory.CreateDocumentUri(DBName, CollectionName, id);
+                    tasks.Add(Client.DeleteDocumentAsync(uri));
+                }
+                var responses = await Task.WhenAll(tasks);
+                deleteCount += responses.Where(r => r != null && ((int)r.StatusCode).IsHttpSuccess()).Count();
+                skip += MaxConnections;
             }
-            var responses = await Task.WhenAll(tasks);
-            return !responses.Any(r => r == null || !((int)r.StatusCode).IsHttpSuccess());
+            return deleteCount == ids.Count();
         }
 
         public void Dispose()
@@ -67,15 +87,22 @@ namespace DocumentDB
 
         public async Task<IThing[]> GetAsync(IEnumerable<string> ids)
         {
-            var tasks = new List<Task<FeedResponse<Thing>>>();
-            foreach(var id in ids)
+            var things = new List<IThing>();
+            var skip = 0;
+            while (skip <= ids.Count())
             {
-                var uri = UriFactory.CreateDocumentCollectionUri(DBName, CollectionName);
-                var query = Client.CreateDocumentQuery<Thing>(uri).Where(d => d.Id == id).AsDocumentQuery();
-                tasks.Add(query.ExecuteNextAsync<Thing>());
+                var tasks = new List<Task<FeedResponse<Thing>>>();
+                foreach (var id in ids.Skip(skip).Take(MaxConnections))
+                {
+                    var uri = UriFactory.CreateDocumentCollectionUri(DBName, CollectionName);
+                    var query = Client.CreateDocumentQuery<Thing>(uri).Where(d => d.Id == id).AsDocumentQuery();
+                    tasks.Add(query.ExecuteNextAsync<Thing>());
+                }
+                var results = await Task.WhenAll(tasks);
+                things.AddRange(results.Select(r => r.FirstOrDefault()).ToArray());
+                skip += MaxConnections;
             }
-            var results = await Task.WhenAll(tasks);
-            return results.Select(r => r.FirstOrDefault()).ToArray();
+            return things.ToArray();
         }
 
         #endregion
@@ -85,5 +112,8 @@ namespace DocumentDB
         private const string CollectionName = "things";
 
         private string DBName { get; }
+
+        private int MaxConnections { get; }
+
     }
 }

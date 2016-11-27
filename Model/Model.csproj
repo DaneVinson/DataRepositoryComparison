@@ -45,8 +45,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IntegerExtender.cs" />
+    <Compile Include="TestAction.cs" />
     <Compile Include="IRepository.cs" />
     <Compile Include="IThing.cs" />
+    <Compile Include="Result.cs" />
     <Compile Include="Thing.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

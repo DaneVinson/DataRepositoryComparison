@@ -47,10 +47,7 @@ namespace AzureStorageTable
             return !tableResults.Any(r => r == null || !r.HttpStatusCode.IsHttpSuccess());
         }
 
-        public void Dispose()
-        {
-            // No resources to dispose.
-        }
+        public void Dispose() { }
 
         public async Task<IThing[]> GetAsync()
         {

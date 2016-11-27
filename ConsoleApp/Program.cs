@@ -12,6 +12,8 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace ConsoleApp
 {
@@ -21,7 +23,11 @@ namespace ConsoleApp
         {
             try
             {
-                ExerciseRepositories(100, 1);
+                ExerciseRepositories(1000, 2);
+
+                //var filePath = @"C:\Users\dvinson\Documents\GitHub\DataRepositoryComparison\ConsoleApp\bin\Debug\DataRepositoryComparison.log";
+                //var results = ReadData(filePath);
+
                 //CleanDocumentDB();
             }
             catch (AggregateException ex)
@@ -44,13 +50,7 @@ namespace ConsoleApp
             }
         }
 
-
-        private static void CleanDocumentDB()
-        {
-            IRepository repository = new DocumentDB.Repository();
-            var things = repository.GetAsync().Result;
-            var success = DeleteThings(things, repository).Result;
-        }
+        #region Data Generation
 
         private static async Task<bool> CreateThings(IEnumerable<IThing> things, IRepository repository)
         {
@@ -70,7 +70,14 @@ namespace ConsoleApp
             stopWatch.Start();
             var success = await repository.CreateAsync(createThings);
             stopWatch.Stop();
-            Log.Info($"{repository.GetType()} - Created {things.Count()} Things: {success}, ms: {stopWatch.ElapsedMilliseconds}");
+            var result = new Result()
+            {
+                Action = TestAction.Create.ToString(),
+                Milliseconds = stopWatch.ElapsedMilliseconds,
+                RepositoryType = repository.GetType().ToString(),
+                ThingCount = things.Count()
+            };
+            Log.Info(result.ToString());
             return success;
         }
 
@@ -92,53 +99,70 @@ namespace ConsoleApp
 
             stopWatch.Stop();
 
-            Log.Info($"{repository.GetType()} - Delete {things.Count()}: {success}, {stopWatch.ElapsedMilliseconds} ms");
+            var result = new Result()
+            {
+                Action = TestAction.Delete.ToString(),
+                Milliseconds = stopWatch.ElapsedMilliseconds,
+                RepositoryType = repository.GetType().ToString(),
+                ThingCount = things.Count()
+            };
+            Log.Info(result.ToString());
+
             return success;
         }
 
         private static void ExerciseRepositories(int thingCount, int iterations)
         {
-            Log.Info($"[{thingCount} Things, {iterations} iterations]");
+            Log.Info($"[ThingCount: {thingCount}, Iterations: {iterations}]");
             for (int i = 0; i < iterations; i++)
             {
                 IEnumerable<IThing> things = NewThings(thingCount);
-                IRepository repository = null;
 
-                //Log.Info("---Local SQL Server---");
-                //repository = new Sql.Dapper.Repository("LocalSqlConnection");
-                //ExeciseRepository(repository, things);
+                //Log.Info("[Local SQL Server]");
+                //ExeciseRepository(typeof(Sql.Dapper.Repository), things, "LocalSqlConnection");
 
-                //Log.Info("---Azure SQL, Basic---");
-                //repository = new Sql.Dapper.Repository("AzureSqlConnection");
-                //ExeciseRepository(repository, things);
+                //Log.Info("[Azure SQL, Basic]");
+                //ExeciseRepository(typeof(Sql.Dapper.Repository), things, "AzureSqlConnection");
 
-                Log.Info("---Azure Storage BLOB---");
-                repository = new AzureStorageBlob.Repository();
-                ExeciseRepository(repository, things);
+                //Log.Info("[Azure Storage BLOB]");
+                //ExeciseRepository(typeof(AzureStorageBlob.Repository), things);
 
-                //Log.Info("---Azure Storage Table---");
-                //repository = new AzureStorageTable.Repository();
-                //ExeciseRepository(repository, things);
+                //Log.Info("[Azure Storage Table]");
+                //ExeciseRepository(typeof(AzureStorageTable.Repository), things);
 
-                //Log.Info("---Azure DocumentDB---");
-                //repository = new DocumentDB.Repository();
-                //ExeciseRepository(repository, things);
+                Log.Info("[Azure DocumentDB]");
+                ExeciseRepository(typeof(DocumentDB.Repository), things);
             }
         }
 
-        private static void ExeciseRepository(IRepository repository, IEnumerable<IThing> things)
+        private static void ExeciseRepository(Type repositoryType, IEnumerable<IThing> things, string connectionName = null)
         {
+            bool success;
+
             // Create new things
-            bool success = CreateThings(things, repository).Result;
+            using (var repository = GetRepository(repositoryType, connectionName))
+            {
+                success = CreateThings(things, repository).Result;
+            }
 
             // Get all things
-            IEnumerable<IThing> freshThings = GetAllThings(repository).Result.ToList();
+            IEnumerable<IThing> freshThings;
+            using (var repository = GetRepository(repositoryType, connectionName))
+            {
+                freshThings = GetAllThings(repository).Result.ToList();
+            }
 
             // Get each thing
-            success = GetThings(freshThings, repository).Result;
+            using (var repository = GetRepository(repositoryType, connectionName))
+            {
+                success = GetThings(freshThings, repository).Result;
+            }
 
             // Delete each thing
-            success = DeleteThings(freshThings, repository).Result;
+            using (var repository = GetRepository(repositoryType, connectionName))
+            {
+                success = DeleteThings(freshThings, repository).Result;
+            }
         }
 
         private static async Task<ICollection<IThing>> GetAllThings(IRepository repository)
@@ -148,9 +172,37 @@ namespace ConsoleApp
             var returnedThings = await repository.GetAsync();
             stopWatch.Stop();
 
-            var successCount = returnedThings.Count();
-            Log.Info($"{repository.GetType()} - Get All: {successCount}, ms: {stopWatch.ElapsedMilliseconds}");
+            var result = new Result()
+            {
+                Action = TestAction.GetAll.ToString(),
+                Milliseconds = stopWatch.ElapsedMilliseconds,
+                RepositoryType = repository.GetType().ToString(),
+                ThingCount = returnedThings.Count()
+            };
+            Log.Info(result.ToString());
+
             return returnedThings;
+        }
+
+        private static IRepository GetRepository(Type repositoryType, string connectionName = null)
+        {
+            if (repositoryType == typeof(AzureStorageBlob.Repository))
+            {
+                return new AzureStorageBlob.Repository();
+            }
+            else if (repositoryType == typeof(AzureStorageTable.Repository))
+            {
+                return new AzureStorageTable.Repository();
+            }
+            else if (repositoryType == typeof(DocumentDB.Repository))
+            {
+                return new DocumentDB.Repository();
+            }
+            else if (repositoryType == typeof(Sql.Dapper.Repository))
+            {
+                return new Sql.Dapper.Repository(connectionName);
+            }
+            else { throw new ArgumentException($"{repositoryType} is an unexpected implementation of {nameof(IRepository)}"); }
         }
 
         private static async Task<bool> GetThings(IEnumerable<IThing> things, IRepository repository)
@@ -170,7 +222,16 @@ namespace ConsoleApp
             }
 
             stopWatch.Stop();
-            Log.Info($"{repository.GetType()} - Get by Id: {foundThings.Length} / {things.Count()}, {stopWatch.ElapsedMilliseconds} ms");
+
+            var result = new Result()
+            {
+                Action = TestAction.Get.ToString(),
+                Milliseconds = stopWatch.ElapsedMilliseconds,
+                RepositoryType = repository.GetType().ToString(),
+                ThingCount = things.Count()
+            };
+            Log.Info(result.ToString());
+
             return foundThings.Length == things.Count();
         }
 
@@ -196,6 +257,35 @@ namespace ConsoleApp
             return things;
         }
 
+        #endregion
+
+        #region Reporting
+
+        private static IEnumerable<Result> ReadData(string filePath)
+        {
+            using (var reader = new StreamReader(filePath))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (!line.StartsWith("{")) { continue; }
+                    yield return JsonConvert.DeserializeObject<Result>(line);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Clean-up
+
+        private static void CleanDocumentDB()
+        {
+            IRepository repository = new DocumentDB.Repository();
+            var things = repository.GetAsync().Result;
+            var success = DeleteThings(things, repository).Result;
+        }
+
+        #endregion
 
         private static readonly ILog Log = log4net.LogManager.GetLogger(typeof(Program));
 
