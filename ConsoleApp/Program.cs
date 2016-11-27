@@ -1,4 +1,5 @@
 ﻿using AzureStorageTable;
+using AzureStorageBlob;
 using GenFu;
 using log4net;
 using log4net.Config;
@@ -20,34 +21,15 @@ namespace ConsoleApp
         {
             try
             {
+                ExerciseRepositories(100, 1);
                 //CleanDocumentDB();
-                //return;
-
-                int count = 100;
-                int iterations = 10;
-                Log.Info($"[{count} Things, {iterations} iterations]");
-
-                for (int i = 0; i < iterations; i++)
-                {
-                    IEnumerable<IThing> things = NewThings(count);
-                    IRepository repository = null;
-
-                    Log.Info("---Local SQL Server---");
-                    repository = new Sql.Dapper.Repository("LocalSqlConnection");
-                    ExeciseRepository(repository, things);
-
-                    Log.Info("---Azure SQL, S0---");
-                    repository = new Sql.Dapper.Repository("AzureSqlConnection");
-                    ExeciseRepository(repository, things);
-
-                    Log.Info("---Azure Storage Table---");
-                    repository = new AzureStorageTable.Repository();
-                    ExeciseRepository(repository, things);
-
-                    Log.Info("---Azure DocumentDB---");
-                    repository = new DocumentDB.Repository();
-                    ExeciseRepository(repository, things);
-                }
+            }
+            catch (AggregateException ex)
+            {
+                Console.WriteLine($"{ex.GetType().Name} - First of {ex.InnerExceptions.Count} inner exceptions");
+                var firstEx = ex.InnerExceptions.First();
+                Console.WriteLine("{0} - {1}", firstEx.GetType(), firstEx.Message);
+                Console.WriteLine(firstEx.StackTrace ?? String.Empty);
             }
             catch (Exception ex)
             {
@@ -62,13 +44,13 @@ namespace ConsoleApp
             }
         }
 
+
         private static void CleanDocumentDB()
         {
             IRepository repository = new DocumentDB.Repository();
             var things = repository.GetAsync().Result;
             var success = DeleteThings(things, repository).Result;
         }
-
 
         private static async Task<bool> CreateThings(IEnumerable<IThing> things, IRepository repository)
         {
@@ -112,6 +94,36 @@ namespace ConsoleApp
 
             Log.Info($"{repository.GetType()} - Delete {things.Count()}: {success}, {stopWatch.ElapsedMilliseconds} ms");
             return success;
+        }
+
+        private static void ExerciseRepositories(int thingCount, int iterations)
+        {
+            Log.Info($"[{thingCount} Things, {iterations} iterations]");
+            for (int i = 0; i < iterations; i++)
+            {
+                IEnumerable<IThing> things = NewThings(thingCount);
+                IRepository repository = null;
+
+                //Log.Info("---Local SQL Server---");
+                //repository = new Sql.Dapper.Repository("LocalSqlConnection");
+                //ExeciseRepository(repository, things);
+
+                //Log.Info("---Azure SQL, Basic---");
+                //repository = new Sql.Dapper.Repository("AzureSqlConnection");
+                //ExeciseRepository(repository, things);
+
+                Log.Info("---Azure Storage BLOB---");
+                repository = new AzureStorageBlob.Repository();
+                ExeciseRepository(repository, things);
+
+                //Log.Info("---Azure Storage Table---");
+                //repository = new AzureStorageTable.Repository();
+                //ExeciseRepository(repository, things);
+
+                //Log.Info("---Azure DocumentDB---");
+                //repository = new DocumentDB.Repository();
+                //ExeciseRepository(repository, things);
+            }
         }
 
         private static void ExeciseRepository(IRepository repository, IEnumerable<IThing> things)
@@ -161,7 +173,6 @@ namespace ConsoleApp
             Log.Info($"{repository.GetType()} - Get by Id: {foundThings.Length} / {things.Count()}, {stopWatch.ElapsedMilliseconds} ms");
             return foundThings.Length == things.Count();
         }
-
 
         private static List<Thing> NewThings(int count)
         {
