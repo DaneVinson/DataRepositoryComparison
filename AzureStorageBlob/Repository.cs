@@ -22,13 +22,25 @@ namespace AzureStorageBlob
         }
 
 
+        public bool Create(IEnumerable<IThing> things)
+        {
+            foreach(var thing in things)
+            {
+                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(thing))))
+                {
+                    CloudBlockBlob blockBlob = Container.GetBlockBlobReference(thing.Id);
+                    blockBlob.UploadFromStream(stream);
+                }
+            }
+            return true;
+        }
+
         public async Task<bool> CreateAsync(IEnumerable<IThing> things)
         {
             var tasks = new List<Task>();
             var streams = new List<MemoryStream>();
             foreach(var thing in things)
             {
-                var json = JsonConvert.SerializeObject(thing);
                 CloudBlockBlob blockBlob = Container.GetBlockBlobReference(thing.Id);
                 var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(thing)));
                 tasks.Add(blockBlob.UploadFromStreamAsync(stream));
@@ -36,6 +48,16 @@ namespace AzureStorageBlob
             }
             await Task.WhenAll(tasks);
             streams.ForEach(s => s.Dispose());
+            return true;
+        }
+
+        public bool Delete(IEnumerable<string> ids)
+        {
+            var tasks = new List<Task<ICloudBlob>>();
+            foreach (var id in ids)
+            {
+                Container.GetBlobReferenceFromServer(id).Delete();
+            }
             return true;
         }
 
@@ -61,6 +83,32 @@ namespace AzureStorageBlob
         }
 
         public void Dispose() { }
+
+        public IThing[] Get()
+        {
+            var streams = new List<MemoryStream>();
+            foreach (var blobItem in Container.ListBlobs())
+            {
+                var blob = (CloudBlockBlob)blobItem;
+                var stream = new MemoryStream();
+                blob.DownloadToStream(stream);
+                streams.Add(stream);
+            }
+            return GetThingsFromStreams(streams);
+        }
+
+        public IThing[] Get(IEnumerable<string> ids)
+        {
+            var streams = new List<MemoryStream>();
+            foreach (var id in ids)
+            {
+                var cloubBlob = Container.GetBlobReferenceFromServer(id);
+                var stream = new MemoryStream();
+                cloubBlob.DownloadToStream(stream);
+                streams.Add(stream);
+            }
+            return GetThingsFromStreams(streams);
+        }
 
         public async Task<IThing[]> GetAsync()
         {
@@ -113,6 +161,7 @@ namespace AzureStorageBlob
             });
             return things.ToArray();
         }
+
 
         private CloudBlobContainer Container { get; }
 

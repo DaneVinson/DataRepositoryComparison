@@ -21,67 +21,120 @@ namespace Sql.Dapper
                 maxConnections = 0;
             }
             MaxConnections = Math.Max(0, maxConnections);
+            Connections = new SqlConnection[MaxConnections];
         }
 
         #region IRepository
+
+        public bool Create(IEnumerable<IThing> things)
+        {
+            int createCount = 0;
+            using (var connection = new SqlConnection(ConnectionString))
+            {
+                foreach (var thing in things)
+                {
+                    connection.Open();
+                    createCount += connection.Execute(InsertSqlString, thing);
+                    connection.Close();
+                }
+            }
+            return createCount == things.Count();
+        }
 
         public async Task<bool> CreateAsync(IEnumerable<IThing> things)
         {
             var createCount = 0;
             var skip = 0;
-            while (skip <= things.Count())
+            var count = things.Count();
+            while (skip < count)
             {
-                var connections = new List<SqlConnection>();
+                var thingsBlock = things.Skip(skip).Take(MaxConnections).ToArray();
+
+                await OpenConnectionsAsync(thingsBlock.Length);
+
                 var tasks = new List<Task<int>>();
-                foreach (var thing in things.Skip(skip).Take(MaxConnections))
+                for (int i = 0; i < thingsBlock.Length; i++)
                 {
-                    var connection = new SqlConnection(ConnectionString);
-                    connections.Add(connection);
-                    string sql = $"insert into Things (Description, Flag, Id, Stamp, Value) Values(@Description, @Flag, @Id, @Stamp, @Value)";
-                    await connection.OpenAsync();
-                    tasks.Add(connection.ExecuteAsync(sql, thing));
+                    tasks.Add(Connections[i].ExecuteAsync(InsertSqlString, thingsBlock[i]));
                 }
                 var inserts = await Task.WhenAll(tasks);
                 createCount += inserts.Sum();
-                connections.ForEach(c =>
-                {
-                    c.Close();
-                    c.Dispose();
-                });
+
+                CleanUpConnections();
+
                 skip += MaxConnections;
             }
             return createCount == things.Count();
+        }
+
+        public bool Delete(IEnumerable<string> ids)
+        {
+            int deleteCount = 0;
+            using (var connection = new SqlConnection(ConnectionString))
+            {
+                foreach (var id in ids)
+                {
+                    connection.Open();
+                    deleteCount += connection.Execute(DeleteSqlString, new { ThingId = Convert.ToInt32(id) });
+                    connection.Close();
+                }
+            }
+            return deleteCount == ids.Count();
         }
 
         public async Task<bool> DeleteAsync(IEnumerable<string> ids)
         {
             var deleteCount = 0;
             var skip = 0;
-            while (skip <= ids.Count())
+            var count = ids.Count();
+            while (skip < count)
             {
-                var connections = new List<SqlConnection>();
+                var idsBlock = ids.Skip(skip).Take(MaxConnections).ToArray();
+
+                await OpenConnectionsAsync(idsBlock.Length);
+
                 var tasks = new List<Task<int>>();
-                foreach (var id in ids.Skip(skip).Take(MaxConnections))
+                for (int i = 0; i < idsBlock.Length; i++)
                 {
-                    var connection = new SqlConnection(ConnectionString);
-                    connections.Add(connection);
-                    string sql = "delete Things where ThingId = @ThingId";
-                    await connection.OpenAsync();
-                    tasks.Add(connection.ExecuteAsync(sql, new { ThingId = Convert.ToInt32(id) }));
+                    tasks.Add(Connections[i].ExecuteAsync(DeleteSqlString, new { ThingId = Convert.ToInt32(idsBlock[i]) }));
                 }
-                var deletes = await Task.WhenAll(tasks);
-                deleteCount += deletes.Sum();
-                connections.ForEach(c =>
-                {
-                    c.Close();
-                    c.Dispose();
-                });
+                var inserts = await Task.WhenAll(tasks);
+                deleteCount += inserts.Sum();
+
+                CleanUpConnections();
+
                 skip += MaxConnections;
             }
             return deleteCount == ids.Count();
         }
 
         public void Dispose() { }
+
+        public IThing[] Get()
+        {
+            using (var connection = new SqlConnection(ConnectionString))
+            {
+                connection.Open();
+                var results = connection.Query<Thing>(GetAllSqlString);
+                connection.Close();
+                return results.ToArray();
+            }
+        }
+
+        public IThing[] Get(IEnumerable<string> ids)
+        {
+            List<IThing> things = new List<IThing>();
+            using (var connection = new SqlConnection(ConnectionString))
+            {
+                foreach (var id in ids)
+                {
+                    connection.Open();
+                    things.Add(connection.QueryFirst<Thing>(GetSqlString, new { ThingId = Convert.ToInt32(id) }));
+                    connection.Close();
+                }
+            }
+            return things.ToArray();
+        }
 
         public async Task<IThing[]> GetAsync()
         {
@@ -99,24 +152,22 @@ namespace Sql.Dapper
         {
             var things = new List<IThing>();
             var skip = 0;
-            while (skip <= ids.Count())
+            var count = ids.Count();
+            while (skip < count)
             {
-                var connections = new List<SqlConnection>();
+                var idsBlock = ids.Skip(skip).Take(MaxConnections).ToArray();
+
+                await OpenConnectionsAsync(idsBlock.Length);
+
                 var tasks = new List<Task<Thing>>();
-                foreach (var id in ids.Skip(skip).Take(MaxConnections))
+                for (int i = 0; i < idsBlock.Length; i++)
                 {
-                    var connection = new SqlConnection(ConnectionString);
-                    connections.Add(connection);
-                    string sql = "select * from Things where ThingId = @ThingId";
-                    await connection.OpenAsync();
-                    tasks.Add(connection.QueryFirstAsync<Thing>(sql, new { ThingId = Convert.ToInt32(id) }));
+                    tasks.Add(Connections[i].QueryFirstAsync<Thing>(GetSqlString, new { ThingId = Convert.ToInt32(idsBlock[i]) }));
                 }
                 things.AddRange(await Task.WhenAll(tasks));
-                connections.ForEach(c =>
-                {
-                    c.Close();
-                    c.Dispose();
-                });
+
+                CleanUpConnections();
+
                 skip += MaxConnections;
             }
             return things.ToArray();
@@ -124,8 +175,50 @@ namespace Sql.Dapper
 
         #endregion
 
-        private string ConnectionString { get; }
+        #region Private Methods
 
-        private int MaxConnections { get; }
+        private void CleanUpConnections()
+        {
+            for (int i = 0; i < Connections.Length; i++)
+            {
+                if (Connections[i] != null)
+                {
+                    Connections[i].Close();
+                    Connections[i].Dispose();
+                    Connections[i] = null;
+                }
+            }
+        }
+
+        private async Task OpenConnectionsAsync(int count)
+        {
+            var tasks = new List<Task>();
+            for (int i = 0; i < count; i++)
+            {
+                Connections[i] = new SqlConnection(ConnectionString);
+                tasks.Add(Connections[i].OpenAsync());
+            }
+            await Task.WhenAll(tasks);
+        }
+
+        #endregion
+
+        #region Readonly Fields
+
+        private readonly SqlConnection[] Connections;
+
+        private readonly string ConnectionString;
+
+        private readonly string DeleteSqlString = "delete Things where ThingId = @ThingId";
+
+        private readonly string GetAllSqlString = "select * from Things";
+
+        private readonly string GetSqlString = "select * from Things where ThingId = @ThingId";
+
+        private readonly string InsertSqlString = "insert into Things (Description, Flag, Id, Stamp, Value) Values(@Description, @Flag, @Id, @Stamp, @Value)";
+
+        private readonly int MaxConnections;
+
+        #endregion
     }
 }

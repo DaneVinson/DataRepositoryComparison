@@ -78,6 +78,26 @@ namespace AzureStorageTable
             return tableResults.Select(r => r.Result as IThing).ToArray();
         }
 
+        public bool Create(IEnumerable<IThing> things)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool Delete(IEnumerable<string> ids)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IThing[] Get()
+        {
+            throw new NotImplementedException();
+        }
+
+        public IThing[] Get(IEnumerable<string> ids)
+        {
+            throw new NotImplementedException();
+        }
+
         #endregion
 
         private CloudTable Table { get; }

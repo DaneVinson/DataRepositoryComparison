@@ -23,12 +23,12 @@ namespace ConsoleApp
         {
             try
             {
-                //ExerciseRepositories(1000, 11);
+                ExerciseRepositories(5, 1);
 
-                var directoryPath = @"C:\temp\RepositoryCompare\";
-                var fileName = "Compare_100x10.log";
-                var results = ReadData(Path.Combine(directoryPath, fileName));
-                OutputProcessedData(results, directoryPath);
+                //var directoryPath = @"C:\temp\RepositoryCompare\";
+                //var fileName = "Compare_100x10.log";
+                //var results = ReadData(Path.Combine(directoryPath, fileName));
+                //OutputProcessedData(results, directoryPath);
 
                 //CleanDocumentDB();
             }
@@ -109,11 +109,11 @@ namespace ConsoleApp
             {
                 IEnumerable<IThing> things = NewThings(thingCount);
 
-                //Log.Info("[Local SQL Server]");
-                //ExeciseRepository(typeof(Sql.Dapper.Repository), things, "LocalSqlConnection", "Local");
+                Log.Info("[Local SQL Server]");
+                ExeciseRepository(typeof(Sql.Dapper.Repository), things, "LocalSqlConnection", "Local");
 
-                Log.Info("[Azure SQL, P1");
-                ExeciseRepository(typeof(Sql.Dapper.Repository), things, "AzureSqlConnection", "Azure_SQL_P1");
+                //Log.Info("[Azure SQL, P1");
+                //ExeciseRepository(typeof(Sql.Dapper.Repository), things, "AzureSqlConnection", "Azure_SQL_P1");
 
                 //Log.Info("[Azure Storage BLOB]");
                 //ExeciseRepository(typeof(AzureStorageBlob.Repository), things);
@@ -121,8 +121,8 @@ namespace ConsoleApp
                 //Log.Info("[Azure Storage Table]");
                 //ExeciseRepository(typeof(AzureStorageTable.Repository), things);
 
-                Log.Info("[Azure DocumentDB, 10k RU]");
-                ExeciseRepository(typeof(DocumentDB.Repository), things, null, "10kRU");
+                //Log.Info("[Azure DocumentDB, 10k RU]");
+                //ExeciseRepository(typeof(DocumentDB.Repository), things, null, "10kRU");
             }
         }
 
