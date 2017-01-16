@@ -22,6 +22,17 @@ namespace AzureStorageTable
 
         #region IRepository
 
+        public bool Create(IEnumerable<IThing> things)
+        {
+            var results = new List<TableResult>();
+            foreach (var thing in things)
+            {
+                TableOperation insertOperation = TableOperation.Insert(thing as ThingEntity);
+                results.Add(Table.Execute(insertOperation));
+            }
+            return !results.Any(r => r == null || !r.HttpStatusCode.IsHttpSuccess());
+        }
+
         public async Task<bool> CreateAsync(IEnumerable<IThing> things)
         {
             var tasks = new List<Task<TableResult>>();
@@ -32,6 +43,18 @@ namespace AzureStorageTable
             }
             var tableResults = await Task.WhenAll(tasks);
             return !tableResults.Any(r => r == null || !r.HttpStatusCode.IsHttpSuccess());
+        }
+
+        public bool Delete(IEnumerable<string> ids)
+        {
+            var results = new List<TableResult>();
+            foreach (var id in ids)
+            {
+                var entity = new DynamicTableEntity(ThingsPartitionKey, id);
+                entity.ETag = "*";
+                results.Add(Table.Execute(TableOperation.Delete(entity)));
+            }
+            return !results.Any(r => r == null || !r.HttpStatusCode.IsHttpSuccess());
         }
 
         public async Task<bool> DeleteAsync(IEnumerable<string> ids)
@@ -48,6 +71,25 @@ namespace AzureStorageTable
         }
 
         public void Dispose() { }
+
+        public IThing[] Get()
+        {
+            var tableQuery = new TableQuery<ThingEntity>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, ThingsPartitionKey));
+            var list = new List<IThing>();
+            list.AddRange(Table.ExecuteQuery(tableQuery));
+            return list.ToArray();
+        }
+
+        public IThing[] Get(IEnumerable<string> ids)
+        {
+            var results = new List<TableResult>();
+            foreach (var id in ids)
+            {
+                TableOperation retrieveOperation = TableOperation.Retrieve<ThingEntity>(ThingsPartitionKey, id);
+                results.Add(Table.Execute(retrieveOperation));
+            }
+            return results.Select(r => r.Result as IThing).ToArray();
+        }
 
         public async Task<IThing[]> GetAsync()
         {
@@ -76,26 +118,6 @@ namespace AzureStorageTable
             }
             var tableResults = await Task.WhenAll(tasks);
             return tableResults.Select(r => r.Result as IThing).ToArray();
-        }
-
-        public bool Create(IEnumerable<IThing> things)
-        {
-            throw new NotImplementedException();
-        }
-
-        public bool Delete(IEnumerable<string> ids)
-        {
-            throw new NotImplementedException();
-        }
-
-        public IThing[] Get()
-        {
-            throw new NotImplementedException();
-        }
-
-        public IThing[] Get(IEnumerable<string> ids)
-        {
-            throw new NotImplementedException();
         }
 
         #endregion

@@ -29,11 +29,24 @@ namespace DocumentDB
 
         #region IRepository
 
+        public bool Create(IEnumerable<IThing> things)
+        {
+            var responses = new List<ResourceResponse<Document>>();
+            foreach (var thing in things)
+            {
+                var uri = UriFactory.CreateDocumentCollectionUri(DBName, CollectionName);
+                responses.Add(Client.UpsertDocumentAsync(uri, thing).Result);
+            }
+            int createCount = responses.Where(r => r != null && ((int)r.StatusCode).IsHttpSuccess()).Count();
+            return createCount == things.Count();
+        }
+
         public async Task<bool> CreateAsync(IEnumerable<IThing> things)
         {
             var createCount = 0;
             var skip = 0;
-            while (skip <= things.Count())
+            var count = things.Count();
+            while (skip < count)
             {
                 var tasks = new List<Task<ResourceResponse<Document>>>();
                 foreach (var thing in things.Skip(skip).Take(MaxConnections))
@@ -46,6 +59,18 @@ namespace DocumentDB
                 skip += MaxConnections;
             }
             return createCount == things.Count();
+        }
+
+        public bool Delete(IEnumerable<string> ids)
+        {
+            var responses = new List<ResourceResponse<Document>>();
+            foreach (var id in ids)
+            {
+                var uri = UriFactory.CreateDocumentUri(DBName, CollectionName, id);
+                responses.Add(Client.DeleteDocumentAsync(uri).Result);
+            }
+            int deleteCount = responses.Where(r => r != null && ((int)r.StatusCode).IsHttpSuccess()).Count();
+            return deleteCount == ids.Count();
         }
 
         public async Task<bool> DeleteAsync(IEnumerable<string> ids)
@@ -70,6 +95,30 @@ namespace DocumentDB
         public void Dispose()
         {
             if (Client != null) { Client.Dispose(); }
+        }
+
+        public IThing[] Get()
+        {
+            var uri = UriFactory.CreateDocumentCollectionUri(DBName, CollectionName);
+            var query = Client.CreateDocumentQuery<Thing>(uri).AsDocumentQuery();
+            List<IThing> things = new List<IThing>();
+            while (query.HasMoreResults)
+            {
+                things.AddRange(query.ExecuteNextAsync<Thing>().Result.ToArray());
+            }
+            return things.ToArray();
+        }
+
+        public IThing[] Get(IEnumerable<string> ids)
+        {
+            var responses = new List<FeedResponse<Thing>>();
+            foreach (var id in ids)
+            {
+                var uri = UriFactory.CreateDocumentCollectionUri(DBName, CollectionName);
+                var query = Client.CreateDocumentQuery<Thing>(uri).Where(d => d.Id == id).AsDocumentQuery();
+                responses.Add(query.ExecuteNextAsync<Thing>().Result);
+            }
+            return responses.Select(r => r.FirstOrDefault()).ToArray();
         }
 
         public async Task<IThing[]> GetAsync()
@@ -103,26 +152,6 @@ namespace DocumentDB
                 skip += MaxConnections;
             }
             return things.ToArray();
-        }
-
-        public bool Create(IEnumerable<IThing> things)
-        {
-            throw new NotImplementedException();
-        }
-
-        public bool Delete(IEnumerable<string> ids)
-        {
-            throw new NotImplementedException();
-        }
-
-        public IThing[] Get()
-        {
-            throw new NotImplementedException();
-        }
-
-        public IThing[] Get(IEnumerable<string> ids)
-        {
-            throw new NotImplementedException();
         }
 
         #endregion
