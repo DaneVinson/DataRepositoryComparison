@@ -14,18 +14,38 @@ namespace Model
         Create = 1,
 
         /// <summary>
-        /// Get all things in bulk.
+        /// Get all things.
         /// </summary>
         GetAll,
 
         /// <summary>
-        /// Get all things one at a time.
+        /// Get things one at a time.
         /// </summary>
         Get,
 
         /// <summary>
-        /// Delete all things one at a time.
+        /// Delete things one at a time.
         /// </summary>
-        Delete
+        Delete,
+
+        /// <summary>
+        /// Create things one at a time asynchronously across a collection.
+        /// </summary>
+        CreateAsync,
+
+        /// <summary>
+        /// Get all things asynchronously.
+        /// </summary>
+        GetAllAsync,
+
+        /// <summary>
+        /// Get things one at a time asynchronously across a collection of Id's.
+        /// </summary>
+        GetAsync,
+
+        /// <summary>
+        /// Delete all things one at a time asynchronously across a collection of Id's.
+        /// </summary>
+        DeleteAsync
     }
 }

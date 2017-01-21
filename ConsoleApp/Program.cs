@@ -23,7 +23,7 @@ namespace ConsoleApp
         {
             try
             {
-                ExerciseRepositories(5, 1);
+                ExerciseRepositories(500, 1);
 
                 //var directoryPath = @"C:\temp\RepositoryCompare\";
                 //var fileName = "Compare_100x10.log";
@@ -52,9 +52,34 @@ namespace ConsoleApp
             }
         }
 
-        #region Data Generation
 
-        private static async Task<bool> CreateThings(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
+        #region Data Gathering
+
+        private static bool CreateThings(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
+        {
+            List<IThing> createThings = things.ToList();
+
+            // Azure Storage Table requires its own IThing implementation.
+            if (repository.GetType() == typeof(AzureStorageTable.Repository))
+            {
+                createThings.Clear();
+                foreach (var thing in things)
+                {
+                    createThings.Add(new ThingEntity(thing));
+                }
+            }
+
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
+            var success = repository.Create(createThings);
+            stopWatch.Stop();
+
+            LogResult(TestAction.Create, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
+
+            return success;
+        }
+
+        private static async Task<bool> CreateThingsAsync(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
         {
             List<IThing> createThings = things.ToList();
 
@@ -73,12 +98,36 @@ namespace ConsoleApp
             var success = await repository.CreateAsync(createThings);
             stopWatch.Stop();
 
-            LogResult(TestAction.Create, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
+            LogResult(TestAction.CreateAsync, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
 
             return success;
         }
 
-        private static async Task<bool> DeleteThings(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
+        private static bool DeleteThings(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
+        {
+            var success = false;
+            var stopWatch = new Stopwatch();
+
+            // For SQL repository use ThingId.ToString() instead of Id.
+            if (repository.GetType() == typeof(Sql.Dapper.Repository))
+            {
+                stopWatch.Start();
+                success = repository.Delete(things.Select(t => t.ThingId.ToString()));
+            }
+            else
+            {
+                stopWatch.Start();
+                success = repository.Delete(things.Select(t => t.Id));
+            }
+
+            stopWatch.Stop();
+
+            LogResult(TestAction.Delete, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
+
+            return success;
+        }
+
+        private static async Task<bool> DeleteThingsAsync(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
         {
             var success = false;
             var stopWatch = new Stopwatch();
@@ -97,7 +146,7 @@ namespace ConsoleApp
 
             stopWatch.Stop();
 
-            LogResult(TestAction.Delete, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
+            LogResult(TestAction.DeleteAsync, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
 
             return success;
         }
@@ -107,63 +156,146 @@ namespace ConsoleApp
             Log.Info($"[ThingCount: {thingCount}, Iterations: {iterations}]");
             for (int i = 0; i < iterations; i++)
             {
+                IEnumerable<IThing> asyncThings = NewThings(thingCount);
                 IEnumerable<IThing> things = NewThings(thingCount);
+                string connectionName = null;
+                string appendName = null;
 
-                Log.Info("[Local SQL Server]");
-                ExeciseRepository(typeof(Sql.Dapper.Repository), things, "LocalSqlConnection", "Local");
+                connectionName = "LocalSqlConnection";
+                appendName = "Local";
+                Log.Info($"[Dapper, {connectionName}]");
+                ExeciseRepository(typeof(Sql.Dapper.Repository), things, connectionName, appendName);
+                Log.Info($"[Dapper, {connectionName} (async)]");
+                ExeciseRepositoryAsync(typeof(Sql.Dapper.Repository), asyncThings, connectionName, appendName).Wait();
 
-                //Log.Info("[Azure SQL, P1");
-                //ExeciseRepository(typeof(Sql.Dapper.Repository), things, "AzureSqlConnection", "Azure_SQL_P1");
+                //connectionName = "AzureSqlBasicConnection";
+                //appendName = "Azure_SQL_Basic";
+                //Log.Info($"[Dapper, {connectionName}]");
+                //ExeciseRepository(typeof(Sql.Dapper.Repository), things, connectionName, appendName);
+                //Log.Info($"[Dapper, {connectionName} (async)]");
+                //ExeciseRepositoryAsync(typeof(Sql.Dapper.Repository), asyncThings, connectionName, appendName).Wait();
 
+                //connectionName = "AzureSqlP1Connection";
+                //appendName = "Azure_SQL_P1";
+                //Log.Info($"[Dapper, {connectionName}]");
+                //ExeciseRepository(typeof(Sql.Dapper.Repository), things, connectionName, appendName);
+                //Log.Info("[Dapper, Azure SQL, P1 (async)");
+                //ExeciseRepositoryAsync(typeof(Sql.Dapper.Repository), asyncThings, connectionName, appendName).Wait();
+
+                //connectionName = null;
+                //appendName = null;
                 //Log.Info("[Azure Storage BLOB]");
-                //ExeciseRepository(typeof(AzureStorageBlob.Repository), things);
+                //ExeciseRepository(typeof(AzureStorageBlob.Repository), things, connectionName, appendName);
+                //Log.Info("[Azure Storage BLOB (async)]");
+                //ExeciseRepositoryAsync(typeof(AzureStorageBlob.Repository), asyncThings, connectionName, appendName).Wait();
 
+                //connectionName = null;
+                //appendName = null;
                 //Log.Info("[Azure Storage Table]");
-                //ExeciseRepository(typeof(AzureStorageTable.Repository), things);
+                //ExeciseRepository(typeof(AzureStorageTable.Repository), things, connectionName, appendName);
+                //Log.Info("[Azure Storage Table (async)]");
+                //ExeciseRepositoryAsync(typeof(AzureStorageTable.Repository), asyncThings, connectionName, appendName).Wait();
 
-                //Log.Info("[Azure DocumentDB, 10k RU]");
-                //ExeciseRepository(typeof(DocumentDB.Repository), things, null, "10kRU");
+                //connectionName = null;
+                //appendName = "400RU";
+                //Log.Info($"[Azure DocumentDB, {appendName}]");
+                //ExeciseRepository(typeof(DocumentDB.Repository), things, connectionName, appendName);
+                //Log.Info($"[Azure DocumentDB, {appendName} (async)]");
+                //ExeciseRepositoryAsync(typeof(DocumentDB.Repository), asyncThings, connectionName, appendName).Wait();
+
+                //connectionName = null;
+                //appendName = "10kRU";
+                //Log.Info($"[Azure DocumentDB, {appendName}]");
+                //ExeciseRepository(typeof(DocumentDB.Repository), things, connectionName, appendName);
+                //Log.Info($"[Azure DocumentDB, {appendName} (async)]");
+                //ExeciseRepositoryAsync(typeof(DocumentDB.Repository), asyncThings, connectionName, appendName).Wait();
             }
         }
 
-        private static void ExeciseRepository(Type repositoryType, IEnumerable<IThing> things, string connectionName = null, string typeNameAppend = null)
+        private static async Task ExeciseRepositoryAsync(Type repositoryType, IEnumerable<IThing> things, string connectionName = null, string typeNameAppend = null)
         {
             bool success;
 
             // Create new things
             using (var repository = GetRepository(repositoryType, connectionName))
             {
-                success = CreateThings(things, repository, typeNameAppend).Result;
+                success = await CreateThingsAsync(things, repository, typeNameAppend);
             }
 
             // Get all things
             IEnumerable<IThing> freshThings;
             using (var repository = GetRepository(repositoryType, connectionName))
             {
-                freshThings = GetAllThings(repository, typeNameAppend).Result.ToList();
+                freshThings = (await GetAllThingsAsync(repository, typeNameAppend)).ToList();
             }
 
             // Get each thing
             using (var repository = GetRepository(repositoryType, connectionName))
             {
-                success = GetThings(freshThings, repository, typeNameAppend).Result;
+                success = await GetThingsAsync(freshThings, repository, typeNameAppend);
             }
 
             // Delete each thing
             using (var repository = GetRepository(repositoryType, connectionName))
             {
-                success = DeleteThings(freshThings, repository, typeNameAppend).Result;
+                success = await DeleteThingsAsync(freshThings, repository, typeNameAppend);
             }
         }
 
-        private static async Task<ICollection<IThing>> GetAllThings(IRepository repository, string typeNameAppend)
+        private static void ExeciseRepository(
+            Type repositoryType, 
+            IEnumerable<IThing> things, 
+            string connectionName = null, 
+            string typeNameAppend = null)
+        {
+            bool success;
+
+            // Create new things
+            using (var repository = GetRepository(repositoryType, connectionName))
+            {
+                success = CreateThings(things, repository, typeNameAppend);
+            }
+
+            // Get all things
+            IEnumerable<IThing> freshThings;
+            using (var repository = GetRepository(repositoryType, connectionName))
+            {
+                freshThings = GetAllThings(repository, typeNameAppend);
+            }
+
+            // Get each thing
+            using (var repository = GetRepository(repositoryType, connectionName))
+            {
+                success = GetThings(freshThings, repository, typeNameAppend);
+            }
+
+            // Delete each thing
+            using (var repository = GetRepository(repositoryType, connectionName))
+            {
+                success = DeleteThings(freshThings, repository, typeNameAppend);
+            }
+        }
+
+        private static ICollection<IThing> GetAllThings(IRepository repository, string typeNameAppend)
+        {
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
+            var returnedThings = repository.Get();
+            stopWatch.Stop();
+
+            LogResult(TestAction.GetAll, stopWatch.ElapsedMilliseconds, repository.GetType(), returnedThings.Count(), typeNameAppend);
+
+            return returnedThings;
+        }
+
+        private static async Task<ICollection<IThing>> GetAllThingsAsync(IRepository repository, string typeNameAppend)
         {
             var stopWatch = new Stopwatch();
             stopWatch.Start();
             var returnedThings = await repository.GetAsync();
             stopWatch.Stop();
 
-            LogResult(TestAction.GetAll, stopWatch.ElapsedMilliseconds, repository.GetType(), returnedThings.Count(), typeNameAppend);
+            LogResult(TestAction.GetAllAsync, stopWatch.ElapsedMilliseconds, repository.GetType(), returnedThings.Count(), typeNameAppend);
 
             return returnedThings;
         }
@@ -189,7 +321,31 @@ namespace ConsoleApp
             else { throw new ArgumentException($"{repositoryType} is an unexpected implementation of {nameof(IRepository)}"); }
         }
 
-        private static async Task<bool> GetThings(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
+        private static bool GetThings(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
+        {
+            IThing[] foundThings = new IThing[0];
+            var stopWatch = new Stopwatch();
+
+            // For SQL repository use ThingId.ToString() instead of Id.
+            if (repository.GetType() == typeof(Sql.Dapper.Repository))
+            {
+                stopWatch.Start();
+                foundThings = repository.Get(things.Select(t => t.ThingId.ToString()));
+            }
+            else
+            {
+                stopWatch.Start();
+                foundThings = repository.Get(things.Select(t => t.Id));
+            }
+
+            stopWatch.Stop();
+
+            LogResult(TestAction.Get, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
+
+            return foundThings.Length == things.Count();
+        }
+
+        private static async Task<bool> GetThingsAsync(IEnumerable<IThing> things, IRepository repository, string typeNameAppend)
         {
             IThing[] foundThings = new IThing[0];
             var stopWatch = new Stopwatch();
@@ -208,12 +364,17 @@ namespace ConsoleApp
 
             stopWatch.Stop();
 
-            LogResult(TestAction.Get, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
+            LogResult(TestAction.GetAsync, stopWatch.ElapsedMilliseconds, repository.GetType(), things.Count(), typeNameAppend);
 
             return foundThings.Length == things.Count();
         }
 
-        private static void LogResult(TestAction action, long milliseconds, Type repositoryType, int thingCount, string typeNameAppend = null)
+        private static void LogResult(
+            TestAction action, 
+            long milliseconds, 
+            Type repositoryType, 
+            int thingCount, 
+            string typeNameAppend = null)
         {
             var typeName = repositoryType.ToString();
             if (!String.IsNullOrEmpty(typeNameAppend)) { typeName = $"{typeName}.{typeNameAppend}"; }
@@ -293,19 +454,19 @@ namespace ConsoleApp
                 List<long> getTimes = new List<long>();
                 foreach(var result in group)
                 {
-                    if (result.Action == TestAction.Create.ToString())
+                    if (result.Action == TestAction.CreateAsync.ToString())
                     {
                         createTimes.Add(result.Milliseconds);
                     }
-                    else if (result.Action == TestAction.Delete.ToString())
+                    else if (result.Action == TestAction.DeleteAsync.ToString())
                     {
                         deleteTimes.Add(result.Milliseconds);
                     }
-                    else if (result.Action == TestAction.Get.ToString())
+                    else if (result.Action == TestAction.GetAsync.ToString())
                     {
                         getTimes.Add(result.Milliseconds);
                     }
-                    else if (result.Action == TestAction.GetAll.ToString())
+                    else if (result.Action == TestAction.GetAllAsync.ToString())
                     {
                         getAllTimes.Add(result.Milliseconds);
                     }
@@ -344,7 +505,7 @@ namespace ConsoleApp
         {
             IRepository repository = new DocumentDB.Repository();
             var things = repository.GetAsync().Result;
-            var success = DeleteThings(things, repository, null).Result;
+            var success = DeleteThingsAsync(things, repository, null).Result;
         }
 
         #endregion
