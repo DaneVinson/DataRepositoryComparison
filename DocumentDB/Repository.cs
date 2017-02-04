@@ -13,14 +13,16 @@ namespace DocumentDB
 {
     public class Repository : IRepository
     {
-        public Repository()
+        public Repository(string name)
         {
+            if (String.IsNullOrWhiteSpace(name)) { name = String.Empty; }
+            var dbName = $"DocumentDB{name}";
             Client = new DocumentClient(
-                            new Uri(CloudConfigurationManager.GetSetting("DocumentDBUri")), 
-                            CloudConfigurationManager.GetSetting("DocumentDBKey"));
-            DBName = CloudConfigurationManager.GetSetting("DocumentDBName");
+                            new Uri(CloudConfigurationManager.GetSetting($"{dbName}Uri")), 
+                            CloudConfigurationManager.GetSetting($"{dbName}Key"));
+            DBName = CloudConfigurationManager.GetSetting($"{dbName}Name");
             int maxConnections = 0;
-            if (!Int32.TryParse(CloudConfigurationManager.GetSetting("MaxDocumentDBConnections"), out maxConnections))
+            if (!Int32.TryParse(CloudConfigurationManager.GetSetting($"Max{dbName}Connections"), out maxConnections))
             {
                 maxConnections = 0;
             }

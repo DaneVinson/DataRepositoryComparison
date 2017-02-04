@@ -312,7 +312,7 @@ namespace ConsoleApp
             }
             else if (repositoryType == typeof(DocumentDB.Repository))
             {
-                return new DocumentDB.Repository();
+                return new DocumentDB.Repository(connectionName);
             }
             else if (repositoryType == typeof(Sql.Dapper.Repository))
             {
@@ -501,9 +501,9 @@ namespace ConsoleApp
 
         #region Clean-up
 
-        private static void CleanDocumentDB()
+        private static void CleanDocumentDB(string name)
         {
-            IRepository repository = new DocumentDB.Repository();
+            IRepository repository = new DocumentDB.Repository(name);
             var things = repository.GetAsync().Result;
             var success = DeleteThingsAsync(things, repository, null).Result;
         }
