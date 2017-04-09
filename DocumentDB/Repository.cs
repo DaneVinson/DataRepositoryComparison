@@ -22,7 +22,7 @@ namespace DocumentDB
                             CloudConfigurationManager.GetSetting($"{dbName}Key"));
             DBName = CloudConfigurationManager.GetSetting($"{dbName}Name");
             int maxConnections = 0;
-            if (!Int32.TryParse(CloudConfigurationManager.GetSetting($"Max{dbName}Connections"), out maxConnections))
+            if (!Int32.TryParse(CloudConfigurationManager.GetSetting($"{dbName}MaxConnections"), out maxConnections))
             {
                 maxConnections = 0;
             }
@@ -69,7 +69,8 @@ namespace DocumentDB
             foreach (var id in ids)
             {
                 var uri = UriFactory.CreateDocumentUri(DBName, CollectionName, id);
-                responses.Add(Client.DeleteDocumentAsync(uri).Result);
+                var requestOptions = new RequestOptions() { PartitionKey = new PartitionKey(id) };
+                responses.Add(Client.DeleteDocumentAsync(uri, requestOptions).Result);
             }
             int deleteCount = responses.Where(r => r != null && ((int)r.StatusCode).IsHttpSuccess()).Count();
             return deleteCount == ids.Count();
@@ -85,7 +86,8 @@ namespace DocumentDB
                 foreach (var id in ids.Skip(skip).Take(MaxConnections))
                 {
                     var uri = UriFactory.CreateDocumentUri(DBName, CollectionName, id);
-                    tasks.Add(Client.DeleteDocumentAsync(uri));
+                    var requestOptions = new RequestOptions() { PartitionKey = new PartitionKey(id) };
+                    tasks.Add(Client.DeleteDocumentAsync(uri, requestOptions));
                 }
                 var responses = await Task.WhenAll(tasks);
                 deleteCount += responses.Where(r => r != null && ((int)r.StatusCode).IsHttpSuccess()).Count();

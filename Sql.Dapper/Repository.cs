@@ -12,11 +12,11 @@ namespace Sql.Dapper
 {
     public class Repository : IRepository
     {
-        public Repository(string connectionName)
+        public Repository(string name)
         {
-            ConnectionString = CloudConfigurationManager.GetSetting(connectionName);
+            ConnectionString = CloudConfigurationManager.GetSetting(name);
             int maxConnections = 0;
-            if(!Int32.TryParse(CloudConfigurationManager.GetSetting("MaxSqlConnections"), out maxConnections))
+            if(!Int32.TryParse(CloudConfigurationManager.GetSetting($"{name}MaxConnections"), out maxConnections))
             {
                 maxConnections = 0;
             }
